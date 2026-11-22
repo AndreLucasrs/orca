@@ -44,6 +44,9 @@ function normalize(path: string): string {
   return foldCase ? resolved.toLowerCase() : resolved
 }
 
+// Some agents create worktrees inside their homes; the guard can't tell such a checkout's files from agent state.
+const checkoutRoot = normalize(fileURLToPath(new URL('../../../../', import.meta.url))) + sep
+
 function realHomes(): string[] {
   const homes = [process.env.HOME, process.env.USERPROFILE]
   try {
@@ -109,8 +112,12 @@ function assertOutsideRealHome(state: GuardState, operation: string, target: unk
   if (!root) {
     return
   }
+  const fix =
+    normalized.startsWith(checkoutRoot) && checkoutRoot.startsWith(root) && checkoutRoot !== root
+      ? `tests can't run from a checkout inside ${root}; use a checkout elsewhere`
+      : 'give the test a temp home'
   const error = new Error(
-    `[vitest real-agent-home guard] ${operation}(${path}) would write the real agent home under ${root}; give the test a temp home`
+    `[vitest real-agent-home guard] ${operation}(${path}) would write the real agent home under ${root}; ${fix}`
   )
   // Why the stack: the writer that swallowed this is what the failing test has to fix.
   state.violations.push(error.stack?.split('\n').slice(0, 12).join('\n') ?? error.message)
