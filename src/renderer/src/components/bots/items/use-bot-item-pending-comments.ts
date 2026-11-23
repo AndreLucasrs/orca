@@ -18,6 +18,10 @@ import { useTranslate } from '@/i18n/use-translate'
 import { botErrorMessage } from '../bot-presentation'
 import { botHostTakes } from '../bot-host-capability'
 import { commentOnBotItem } from './use-bot-items'
+import {
+  botItemClearDeliveredAnswers,
+  botItemHeldAnswersScope
+} from './use-bot-item-question-steps'
 
 const usePendingComments = createBotItemPendingCommentsHook({ useEffect, useSyncExternalStore })
 
@@ -45,6 +49,12 @@ export function useBotItemPendingComments(
           ? t('bots.items.ask.replaced', 'The agent asked a new question. Read it, then reply.')
           : botErrorMessage(error)
       ),
+    // Its answers leave the ask's held picks: the host has them.
+    delivered: ({ intent }) => {
+      if (intent && intent.shape.decisions.length > 1) {
+        botItemClearDeliveredAnswers(botItemHeldAnswersScope(bot, uid, intent.askId), intent)
+      }
+    },
     requestIds: botHostTakes(bot, BOTS_ITEM_COMMENT_REQUEST_ID_RUNTIME_CAPABILITY),
     questionIds: botHostTakes(bot, BOTS_ITEM_COMMENT_QUESTION_ID_RUNTIME_CAPABILITY),
     plain: botHostTakes(bot, BOTS_ITEM_COMMENT_PLAIN_RUNTIME_CAPABILITY),

@@ -109,13 +109,21 @@ function answeredLines(
   // Several questions answered in one comment, a line each; or a quick reply edited before sending.
   // They belong to one ask: the one it names first, so a question asked again in a later ask keeps
   // its own line open.
+  let recognized = false
   for (const ask of asks) {
-    const lines = botItemNamedAnswers(ask.entry.shape, text).flatMap((words, index) =>
-      words !== null && isOpen(ask.entry, index) ? [index] : []
+    const words = botItemNamedAnswers(ask.entry.shape, text)
+    const lines = words.flatMap((named_, index) =>
+      named_ !== null && isOpen(ask.entry, index) ? [index] : []
     )
     if (lines.length > 0) {
       return [{ ask, lines, byOrder: false }]
     }
+    recognized ||= words.some((named_) => named_ !== null)
+  }
+  // It names lines, all answered meanwhile (another client got there first): it answers none, not
+  // the next open line by order.
+  if (recognized) {
+    return []
   }
   if (answersAskedQuestions(text, asked)) {
     return []

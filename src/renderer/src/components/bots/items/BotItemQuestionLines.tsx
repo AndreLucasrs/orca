@@ -2,8 +2,8 @@
 // replies. While the item waits on it, the open line reads as a title and its recommended reply is
 // filled; the card's Needs you tag carries the color.
 // One question: a quick reply posts its words as the owner's comment, and Alt- or Shift-click puts them
-// in the comment box to add to first; Type your answer leads to the box. Several: one line at a time
-// (BotItemQuestionStep), answers held until the last. Answered, a line reads "Question → answer", muted,
+// in the comment box to add to first; Type your answer leads to the box. Several: every line at once
+// (BotItemQuestionStep), picks held until Send. Answered, a line reads "Question → answer", muted,
 // and the answer's own card is not drawn again.
 import { Pencil } from 'lucide-react'
 import { useTranslate } from '@/i18n/use-translate'
@@ -64,7 +64,8 @@ export function BotItemQuestionLines({
   const several = shape.decisions.length > 1
   // Answers held for an ask the agent no longer waits on (it asked again): its draft, until sent.
   const stored = useBotItemHeldAnswers(heldScope ?? NO_HELD_SCOPE, shape)
-  const sent = actions?.sent?.askId === askId ? actions.sent.answers : null
+  // Its sends on their way: shown on their lines until the host's read has them.
+  const sent = actions?.sent?.get(askId) ?? null
   const answered = shape.decisions.map((_, index) => {
     // A line being stepped shows its held answer; with several questions, a comment that named no
     // line shows as itself, not as the line's answer.
@@ -80,7 +81,12 @@ export function BotItemQuestionLines({
       </div>
     )
   }
-  const unsent = !waiting && heldScope && stored.held.some(Boolean) ? stored : null
+  // Held picks of an ask the agent no longer waits on: not a line a comment answered by name, nor one
+  // whose send is on its way.
+  const recoverable = stored.held.map((words, index) =>
+    (answers[index] && !byOrder?.[index]) || sent?.[index] ? null : words
+  )
+  const unsent = !waiting && heldScope && recoverable.some(Boolean) ? stored : null
   return (
     <div data-bot-item-question={waiting ? 'waiting' : 'closed'} className={spacing}>
       <div className={several ? 'space-y-1.5' : 'space-y-3'}>
@@ -88,7 +94,7 @@ export function BotItemQuestionLines({
           const words = answered[index]
           // Each line waits until its own reply; the agent stops waiting when it asks again or the item closes.
           const open = waiting && !answers[index] && !words
-          const held = unsent?.held[index]
+          const held = unsent ? recoverable[index] : null
           if (words) {
             return (
               <BotItemAnswerLine
@@ -106,7 +112,7 @@ export function BotItemQuestionLines({
                 words={held}
                 // Not sent: into the box, to send as a comment.
                 onClick={() => {
-                  actions.recover(botItemAnswersText(shape, unsent.held))
+                  actions.recover(botItemAnswersText(shape, recoverable))
                   unsent.hold([])
                 }}
               />
